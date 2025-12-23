@@ -340,8 +340,13 @@
                           </div>
                         </div>
                         {remainingDays !== null && (
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${remainingDays > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                            预计还有 {remainingDays} 天失效
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            remainingDays > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                          }`}>
+                            {remainingDays > 0 
+                              ? `预计还有 ${remainingDays} 天失效` 
+                              : `已过期 ${Math.abs(remainingDays)} 天`
+                            }
                           </span>
                         )}
                       </div>
@@ -603,7 +608,7 @@
             appId: 'app-1',
             spaceId: 'sp-7',
             usageCount: 120,
-            expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
+            expiresAt: '2025-12-28T23:59:59'
           },
           {
             id: 'k-2',
@@ -639,7 +644,7 @@
             appId: 'app-3',
             spaceId: 'sp-7',
             usageCount: 42,
-            expiresAt: '2024-01-01T23:59:59Z'
+            expiresAt: '2024-01-01T23:59:59'
           },
           {
             id: 'k-4',
@@ -657,7 +662,7 @@
             appId: 'app-1',
             spaceId: 'sp-7',
             usageCount: 0,
-            expiresAt: new Date(Date.now() + 85 * 24 * 60 * 60 * 1000).toISOString()
+            expiresAt: '2026-03-18T23:59:59'
           },
           {
             id: 'k-6',
@@ -675,7 +680,7 @@
             appId: 'app-1',
             spaceId: 'sp-7',
             usageCount: 432,
-            expiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
+            expiresAt: '2025-12-25T23:59:59'
           }
         ]);
 
