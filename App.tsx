@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Space, AppModel, ApiKey, KeyStatus } from './types';
 import { INITIAL_SPACES, INITIAL_APPS, ICONS } from './constants';
@@ -22,13 +21,13 @@ const App: React.FC = () => {
   // 筛选细项
   const [selAppIds, setSelAppIds] = useState<string[]>([]);
   const [expiryFilter, setExpiryFilter] = useState<'all' | '7d' | '30d' | 'expired' | 'permanent'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'revoked'>('all');
-  const [creatorFilter, setCreatorFilter] = useState<'all' | 'me'>('all');
+  const [viewMyOnly, setViewMyOnly] = useState(false);
+  const [isAppDropdownOpen, setIsAppDropdownOpen] = useState(false);
 
   const [keys, setKeys] = useState<ApiKey[]>([
     {
       id: 'k-1',
-      name: '生产环境同步服务',
+      name: '元数据同步服务 (主)',
       prefix: 'dp_a7f298k1l0m9',
       status: KeyStatus.ACTIVE,
       userId: 'user-current',
@@ -45,7 +44,79 @@ const App: React.FC = () => {
       appId: 'app-1',
       spaceId: 'sp-7',
       usageCount: 120,
-      expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString() // 5天后过期，用于测试筛选
+      expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: 'k-2',
+      name: '测试环境全域Key',
+      prefix: 'dp_global_test_v2',
+      status: KeyStatus.ACTIVE,
+      userId: 'user-current',
+      userName: '文俊',
+      creatorId: 'user-current',
+      creatorName: '文俊',
+      createdAt: '2024-01-15 09:00:00',
+      lastUsedAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+      authorizedAppIds: [], 
+      scopes: [],
+      appId: 'app-1',
+      spaceId: 'sp-7',
+      usageCount: 2540,
+      expiresAt: undefined 
+    },
+    {
+      id: 'k-3',
+      name: '归档数据提取工具',
+      prefix: 'dp_archived_legacy',
+      status: KeyStatus.ACTIVE,
+      userId: 'user-current',
+      userName: '文俊',
+      creatorId: 'user-current',
+      creatorName: '文俊',
+      createdAt: '2023-11-10 14:30:00',
+      lastUsedAt: '2024-01-20 11:22:33',
+      authorizedAppIds: ['app-3'],
+      scopes: [],
+      appId: 'app-3',
+      spaceId: 'sp-7',
+      usageCount: 42,
+      expiresAt: '2024-01-01T23:59:59Z'
+    },
+    {
+      id: 'k-4',
+      name: '系统管理员备用Key (Root)',
+      prefix: 'dp_root_admin_sys',
+      status: KeyStatus.ACTIVE,
+      userId: 'user-admin',
+      userName: '管理员',
+      creatorId: 'user-admin',
+      creatorName: '管理员',
+      createdAt: '2024-03-01 16:45:10',
+      lastUsedAt: undefined,
+      authorizedAppIds: [],
+      scopes: [],
+      appId: 'app-1',
+      spaceId: 'sp-7',
+      usageCount: 0,
+      expiresAt: new Date(Date.now() + 85 * 24 * 60 * 60 * 1000).toISOString()
+    },
+    {
+      id: 'k-6',
+      name: '即将到期的预警Key',
+      prefix: 'dp_warning_exp_01',
+      status: KeyStatus.ACTIVE,
+      userId: 'user-current',
+      userName: '文俊',
+      creatorId: 'user-current',
+      creatorName: '文俊',
+      createdAt: '2024-04-20 12:00:00',
+      lastUsedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      authorizedAppIds: ['app-1', 'app-2', 'app-3'],
+      scopes: [],
+      appId: 'app-1',
+      spaceId: 'sp-7',
+      usageCount: 432,
+      expiresAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
     }
   ]);
 
@@ -58,7 +129,6 @@ const App: React.FC = () => {
   const filteredSpaces = useMemo(() => spaces.filter(s => s.name.toLowerCase().includes(searchSpace.toLowerCase())), [searchSpace, spaces]);
   const spaceApps = useMemo(() => apps.filter(a => a.spaceId === activeSpaceId), [activeSpaceId, apps]);
 
-  // 点击外部关闭筛选面板
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
@@ -73,24 +143,13 @@ const App: React.FC = () => {
     return keys
       .filter(k => k.spaceId === activeSpaceId)
       .filter(k => {
-        // 1. 文本搜索
         if (filterText && !k.name.toLowerCase().includes(filterText.toLowerCase())) return false;
-        
-        // 2. 应用过滤 (多选)
         if (selAppIds.length > 0) {
           const isGlobal = k.authorizedAppIds.length === 0;
           const hasMatch = k.authorizedAppIds.some(id => selAppIds.includes(id));
           if (!isGlobal && !hasMatch) return false;
         }
-
-        // 3. 密钥状态过滤
-        if (statusFilter === 'active' && k.status !== KeyStatus.ACTIVE) return false;
-        if (statusFilter === 'revoked' && k.status !== KeyStatus.REVOKED) return false;
-
-        // 4. 创建人过滤
-        if (creatorFilter === 'me' && k.creatorId !== 'user-current') return false;
-
-        // 5. 到期状态过滤
+        if (viewMyOnly && k.creatorId !== 'user-current') return false;
         if (expiryFilter !== 'all') {
           const now = new Date();
           const expiry = k.expiresAt ? new Date(k.expiresAt) : null;
@@ -105,16 +164,14 @@ const App: React.FC = () => {
             if (!expiry || expiry < now || expiry > new Date(now.getTime() + 30*24*60*60*1000)) return false;
           }
         }
-
         return true;
       });
-  }, [activeSpaceId, keys, filterText, selAppIds, expiryFilter, statusFilter, creatorFilter]);
+  }, [activeSpaceId, keys, filterText, selAppIds, expiryFilter, viewMyOnly]);
 
   const resetFilters = () => {
     setSelAppIds([]);
     setExpiryFilter('all');
-    setStatusFilter('all');
-    setCreatorFilter('all');
+    setViewMyOnly(false);
   };
 
   const tabs = [
@@ -297,23 +354,37 @@ const App: React.FC = () => {
             {activeTab === 'api' ? (
               <>
                 <div className="flex items-center justify-between">
-                  <button 
-                    onClick={() => setIsModalOpen(true)}
-                    className="flex items-center h-10 px-6 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 active:scale-95"
-                  >
-                    新建密钥
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={() => setIsModalOpen(true)}
+                      className="flex items-center h-10 px-6 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 active:scale-95"
+                    >
+                      新建密钥
+                    </button>
+                  </div>
 
                   <div className="flex items-center gap-3">
+                    <div 
+                      className="flex items-center gap-2 px-1 group cursor-pointer select-none" 
+                      onClick={() => setViewMyOnly(!viewMyOnly)}
+                    >
+                      <div className={`w-7 h-4 rounded-full relative transition-colors duration-200 ${viewMyOnly ? 'bg-indigo-600' : 'bg-slate-200'}`}>
+                        <div 
+                          className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-all duration-200 ${viewMyOnly ? 'left-3.5' : 'left-0.5'}`}
+                        ></div>
+                      </div>
+                      <span className={`text-xs font-bold transition-colors ${viewMyOnly ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>查看我的</span>
+                    </div>
+
                     <div className="relative group flex items-center">
                       <input 
                         type="text" 
                         placeholder="搜索密钥名称..." 
                         value={filterText} 
                         onChange={e => setFilterText(e.target.value)} 
-                        className="w-[280px] h-10 pl-4 pr-10 bg-white border border-slate-200 border-r-0 rounded-l-lg text-sm outline-none focus:border-[#5569ff] transition-all placeholder:text-slate-400" 
+                        className="w-[280px] h-10 pl-4 pr-10 bg-white border border-slate-200 border-r-0 rounded-l-lg text-sm outline-none focus:border-indigo-600 transition-all placeholder:text-slate-400" 
                       />
-                      <button className="h-10 px-3 bg-white border border-slate-200 border-l-0 rounded-r-lg text-slate-400 hover:text-[#5569ff] transition-colors">
+                      <button className="h-10 px-3 bg-white border border-slate-200 border-l-0 rounded-r-lg text-slate-400 hover:text-indigo-600 transition-colors">
                         <ICONS.Search />
                       </button>
                     </div>
@@ -325,7 +396,7 @@ const App: React.FC = () => {
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                         筛选
-                        {(selAppIds.length > 0 || expiryFilter !== 'all' || statusFilter !== 'all' || creatorFilter !== 'all') && (
+                        {(selAppIds.length > 0 || expiryFilter !== 'all') && (
                           <span className="w-1.5 h-1.5 bg-indigo-600 rounded-full"></span>
                         )}
                       </button>
@@ -337,31 +408,46 @@ const App: React.FC = () => {
                             <button onClick={resetFilters} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700">重置</button>
                           </div>
                           
-                          <div className="p-4 space-y-5 max-h-[400px] overflow-y-auto custom-scrollbar">
-                            {/* 应用范围 */}
+                          <div className="p-4 space-y-5">
                             <div className="space-y-2">
                               <span className="text-[10px] font-bold text-slate-400 uppercase">应用范围</span>
-                              <div className="space-y-1">
-                                {spaceApps.map(app => (
-                                  <label key={app.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group">
-                                    <input 
-                                      type="checkbox" 
-                                      checked={selAppIds.includes(app.id)}
-                                      onChange={(e) => {
-                                        if(e.target.checked) setSelAppIds([...selAppIds, app.id]);
-                                        else setSelAppIds(selAppIds.filter(id => id !== app.id));
-                                      }}
-                                      className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <span className={`text-xs ${selAppIds.includes(app.id) ? 'text-indigo-600 font-bold' : 'text-slate-600'}`}>{app.name}</span>
-                                  </label>
-                                ))}
+                              <div className="relative">
+                                <button 
+                                  onClick={() => setIsAppDropdownOpen(!isAppDropdownOpen)}
+                                  className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 hover:border-indigo-200 transition-all"
+                                >
+                                  <span className="truncate">
+                                    {selAppIds.length === 0 ? '选择应用...' : `已选 ${selAppIds.length} 个应用`}
+                                  </span>
+                                  <div className={`transition-transform duration-200 ${isAppDropdownOpen ? 'rotate-90' : ''}`}>
+                                    <ICONS.ChevronRight />
+                                  </div>
+                                </button>
+                                
+                                {isAppDropdownOpen && (
+                                  <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 max-h-48 overflow-y-auto custom-scrollbar animate-in fade-in zoom-in-95 duration-150">
+                                    {spaceApps.map(app => (
+                                      <label key={app.id} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 cursor-pointer transition-colors group">
+                                        <input 
+                                          type="checkbox" 
+                                          checked={selAppIds.includes(app.id)}
+                                          onChange={(e) => {
+                                            if(e.target.checked) setSelAppIds([...selAppIds, app.id]);
+                                            else setSelAppIds(selAppIds.filter(id => id !== app.id));
+                                          }}
+                                          className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                        />
+                                        <span className={`text-xs ${selAppIds.includes(app.id) ? 'text-indigo-600 font-bold' : 'text-slate-600'}`}>{app.name}</span>
+                                      </label>
+                                    ))}
+                                    {spaceApps.length === 0 && <div className="px-3 py-2 text-[10px] text-slate-400 italic">暂无可选应用</div>}
+                                  </div>
+                                )}
                               </div>
                             </div>
 
-                            {/* 有效期状态 */}
                             <div className="space-y-2">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase">到期预警</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">授权有效期</span>
                               <div className="grid grid-cols-2 gap-1.5">
                                 {[
                                   { id: 'all', label: '全部' },
@@ -378,35 +464,6 @@ const App: React.FC = () => {
                                     {opt.label}
                                   </button>
                                 ))}
-                              </div>
-                            </div>
-
-                            {/* 密钥状态 */}
-                            <div className="space-y-2">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase">密钥状态</span>
-                              <div className="flex gap-2">
-                                {[
-                                  { id: 'all', label: '全部' },
-                                  { id: 'active', label: '生效中' },
-                                  { id: 'revoked', label: '已禁用' },
-                                ].map(opt => (
-                                  <button 
-                                    key={opt.id}
-                                    onClick={() => setStatusFilter(opt.id as any)}
-                                    className={`flex-1 py-1.5 text-center text-xs rounded-lg transition-all ${statusFilter === opt.id ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                                  >
-                                    {opt.label}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* 创建人 */}
-                            <div className="space-y-2">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase">创建人</span>
-                              <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
-                                <button onClick={() => setCreatorFilter('all')} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${creatorFilter === 'all' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}>全部</button>
-                                <button onClick={() => setCreatorFilter('me')} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${creatorFilter === 'me' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}>由我创建</button>
                               </div>
                             </div>
                           </div>

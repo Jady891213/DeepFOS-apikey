@@ -12,19 +12,58 @@ interface ApiKeyTableProps {
 
 const ApiKeyTable: React.FC<ApiKeyTableProps> = ({ keys, apps, onRevoke, onEdit }) => {
   const getValidityInfo = (key: ApiKey) => {
-    if (key.status === KeyStatus.REVOKED) return { valid: false, text: '已手动撤回' };
-    if (key.expiresAt) {
-      const expiry = new Date(key.expiresAt);
-      const now = new Date();
-      if (expiry < now) return { valid: false, text: '已过期' };
-      const diffDays = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      return { valid: true, text: `剩余 ${diffDays} 天` };
+    const now = new Date();
+    const expiry = key.expiresAt ? new Date(key.expiresAt) : null;
+    const isExpired = expiry && expiry < now;
+
+    // Case 3: 已过期
+    if (isExpired) {
+      return {
+        row1: (
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-rose-500"></div>
+            <span className="text-rose-600 font-bold">已过期</span>
+          </div>
+        ),
+        row2: <span className="text-slate-400 font-mono text-[10px]">{key.expiresAt?.replace('T', ' ').split('.')[0]}</span>,
+        canEdit: false,
+        statusType: 'expired'
+      };
     }
-    return { valid: true, text: '永久有效' };
+
+    // Case 1: 生效中 (剩余XX天)
+    if (expiry) {
+      const diffDays = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        row1: (
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+            <span className="text-emerald-700 font-bold">生效中</span>
+            <span className="text-slate-500 font-medium">({diffDays}天后到期)</span>
+          </div>
+        ),
+        row2: <span className="text-slate-400 font-mono text-[10px]">{key.expiresAt?.replace('T', ' ').split('.')[0]}</span>,
+        canEdit: true,
+        statusType: 'active'
+      };
+    }
+
+    // Case 2: 生效中 + 永久有效
+    return {
+      row1: (
+        <div className="flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+          <span className="text-emerald-700 font-bold">生效中</span>
+        </div>
+      ),
+      row2: <span className="text-slate-400 font-medium text-[10px]">永久有效</span>,
+      canEdit: true,
+      statusType: 'permanent'
+    };
   };
 
   const formatRelativeTime = (dateStr?: string) => {
-    if (!dateStr) return '--';
+    if (!dateStr) return '未使用';
     const date = new Date(dateStr);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -33,9 +72,7 @@ const ApiKeyTable: React.FC<ApiKeyTableProps> = ({ keys, apps, onRevoke, onEdit 
     const diffHour = Math.floor(diffMin / 60);
     const diffDay = Math.floor(diffHour / 24);
     const diffMonth = Math.floor(diffDay / 30);
-    const diffYear = Math.floor(diffDay / 365);
 
-    if (diffYear > 0) return `${diffYear}年之前`;
     if (diffMonth > 0) return `${diffMonth}个月前`;
     if (diffDay > 0) return `${diffDay}天前`;
     if (diffHour > 0) return `${diffHour}小时前`;
@@ -72,7 +109,7 @@ const ApiKeyTable: React.FC<ApiKeyTableProps> = ({ keys, apps, onRevoke, onEdit 
         </thead>
         <tbody className="divide-y divide-slate-100">
           {keys.map((key) => {
-            const { valid, text } = getValidityInfo(key);
+            const info = getValidityInfo(key);
             return (
               <tr key={key.id} className="hover:bg-slate-50/80 transition-colors group">
                 <td className="px-6 py-4">
@@ -83,11 +120,8 @@ const ApiKeyTable: React.FC<ApiKeyTableProps> = ({ keys, apps, onRevoke, onEdit 
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-col">
-                    <div className="flex items-center gap-1.5">
-                      <div className={`w-1.5 h-1.5 rounded-full ${valid ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
-                      <span className={`text-xs font-bold ${valid ? 'text-emerald-700' : 'text-rose-700'}`}>{valid ? '生效中' : '已失效'}</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 mt-0.5">{text}</span>
+                    <div className="text-xs">{info.row1}</div>
+                    <div className="mt-1.5">{info.row2}</div>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-slate-600">
@@ -104,25 +138,32 @@ const ApiKeyTable: React.FC<ApiKeyTableProps> = ({ keys, apps, onRevoke, onEdit 
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                  <span className="text-xs text-slate-500 font-medium">
-                    {formatRelativeTime(key.lastUsedAt)}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-slate-600 font-medium">
+                      {formatRelativeTime(key.lastUsedAt)}
+                    </span>
+                    {key.lastUsedAt && (
+                      <span className="text-[10px] text-slate-400 mt-1.5 font-mono">
+                        {key.lastUsedAt.replace('T', ' ').split('.')[0]}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4">
                    <div className="flex flex-col">
                      <span className="text-xs text-slate-600 font-medium">{key.creatorName}</span>
-                     <span className="text-[10px] text-slate-400 mt-0.5">{key.createdAt}</span>
+                     <span className="text-[10px] text-slate-400 mt-0.5 font-mono">{key.createdAt}</span>
                    </div>
                 </td>
                 <td className="px-6 py-4">
                    <div className="flex flex-col">
                      <span className="text-xs text-slate-600 font-medium">{key.updaterName || '--'}</span>
-                     <span className="text-[10px] text-slate-400 mt-0.5">{key.updatedAt || '--'}</span>
+                     <span className="text-[10px] text-slate-400 mt-0.5 font-mono">{key.updatedAt || '--'}</span>
                    </div>
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    {key.status === KeyStatus.ACTIVE && valid && (
+                    {key.status === KeyStatus.ACTIVE && info.canEdit && (
                       <>
                         <button onClick={() => onEdit(key)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all" title="编辑密钥">
                           <ICONS.Edit />
