@@ -294,6 +294,10 @@
                   <label className="text-xs font-black text-slate-400 uppercase tracking-wider">密钥标识名称</label>
                   <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-200 transition-all" placeholder="如：自动化数据同步" />
                 </div>
+                <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">接口执行用户</label>
+                    <div className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-slate-400 text-xs font-bold">{'文俊'}</div>
+                </div>
 
                 <div className="space-y-2">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-wider">授权应用范围</label>
@@ -417,21 +421,17 @@
               </div>
 
               <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">密钥掩码</label>
-                    <div className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-slate-400 font-mono text-xs">{apiKey.prefix.slice(0, 8)}...</div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">接口执行用户</label>
-                    <div className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-slate-400 text-xs font-bold">{apiKey.userName}</div>
-                  </div>
-                </div>
 
                 <div className="space-y-2">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-wider">密钥标识名称</label>
                   <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-200 transition-all" />
                 </div>
+
+                <div className="space-y-2">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-wider">接口执行用户</label>
+                    <div className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-slate-400 text-xs font-bold">{apiKey.userName}</div>
+                </div>
+                
 
                 <div className="space-y-3">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-wider">授权应用范围</label>
